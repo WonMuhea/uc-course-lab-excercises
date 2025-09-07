@@ -1,0 +1,9 @@
+# Include top-level docs for this week
+include README.md
+include requirements.txt
+
+# Include the app entrypoint (single-module layout)
+include app.py
+
+# Exclude common junk
+global-exclude __pycache__ *.py[cod] .DS_Store

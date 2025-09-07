@@ -1,0 +1,20 @@
+# week-1-qrgen/pyproject.toml
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "week1-qrgen"
+version = "0.1.0"
+requires-python = ">=3.9"
+dependencies = ["qrcode[pil]>=7.4.2,<8"]
+readme = "README.md"
+
+# Expose CLI (optional): `qrgen` runs app.main()
+[project.scripts]
+qrgen = "app:main"
+
+[tool.setuptools]
+# Treat this folder as the module root; `app.py` becomes module "app"
+package-dir = {"" = "."}
+py-modules = ["app"]
