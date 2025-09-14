@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Project Overview</title>
+    <!-- Bootstrap CSS from CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <!-- Optional: Add custom styling for the README content -->
+    <style>
+        .readme-content {
+            padding: 2rem;
+            background-color: #f8f9fa;
+            border-radius: 0.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .readme-content h1, .readme-content h2, .readme-content h3 {
+            border-bottom: 1px solid #dee2e6;
+            padding-bottom: 0.5rem;
+            margin-top: 1.5rem;
+            color: #343a40;
+        }
+        .nav-link-item {
+            font-size: 1.1rem;
+            padding: 0.5rem 0;
+        }
+    </style>
+</head>
+<body>
+<div class="container mt-5">
+    <div class="row">
+        <!-- Navigation Links Column -->
+        <div class="col-md-4">
+            <div class="card bg-light">
+                <div class="card-header">
+                    <h4 class="mb-0">Project Links</h4>
+                </div>
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item nav-link-item"><a th:href="@{/login}" class="text-decoration-none">Login Page</a></li>
+                    <li class="list-group-item nav-link-item"><a th:href="@{/home}" class="text-decoration-none">Home Page (Authenticated)</a></li>
+                    <li class="list-group-item nav-link-item"><a th:href="@{/admin}" class="text-decoration-none">Admin Page (Admin Role)</a></li>
+                    <li class="list-group-item nav-link-item"><a th:href="@{https://localhost:8443/api/secure/user}" class="text-decoration-none">Secure User API</a></li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- README Content Column -->
+        <div class="col-md-8">
+            <div class="readme-content" th:utext="${readmeHtml}">
+                <!-- The parsed HTML content of the README.md file will be inserted here -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bootstrap JS with Popper -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+</body>
+</html>

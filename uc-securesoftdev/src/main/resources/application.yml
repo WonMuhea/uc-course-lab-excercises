@@ -1,0 +1,15 @@
+server:
+  port: 8443
+  ssl:
+    enabled: true
+    key-store: classpath:keystore.p12
+    key-store-type: PKCS12
+    key-store-password: my-password
+    key-alias: my-key
+  http:
+    port: 8080
+
+api:
+  rate:
+    limit: 100
+    interval: 60
