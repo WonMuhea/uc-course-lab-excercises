@@ -37,7 +37,6 @@
     </div>
 
     <div class="d-flex justify-content-between">
-        <a th:href="@{/admin}" sec:authorize="hasRole('ADMIN')" class="btn btn-warning">Go to Admin Page</a>
         <form th:action="@{/logout}" method="post">
             <input type="submit" value="Logout" class="btn btn-danger">
         </form>

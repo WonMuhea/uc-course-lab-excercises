@@ -16,10 +16,10 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
-public class SimpleUrlAuthSuccessHandler implements AuthenticationSuccessHandler {
+public class SimpleAuthSuccessHandler implements AuthenticationSuccessHandler {
 
     private RedirectStrategy redirectStrategy = new DefaultRedirectStrategy();
-    Logger logger = org.slf4j.LoggerFactory.getLogger(SimpleUrlAuthSuccessHandler.class);
+    Logger logger = org.slf4j.LoggerFactory.getLogger(SimpleAuthSuccessHandler.class);
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication)

@@ -18,8 +18,3 @@ This is a sample project demonstrating a secure Spring Boot application with var
 *   **Home Page:** For authenticated users, use the one time encryption tool to encrypt your text.
 *   **Admin Page:** For users with the `ADMIN` role.
 *   **SQL Injection Demo:** Demonstrates the difference between a vulnerable and a secure endpoint.
-
-## Getting Started
-
-1.  Log in using the predefined credentials: `user`/`password` or `admin`/`password`.
-2.  Explore the features by navigating to the links above.

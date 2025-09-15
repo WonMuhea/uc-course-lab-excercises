@@ -17,7 +17,6 @@ public class VulnController {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
-    // Secure endpoint using JPA
     @Autowired
     private UserRepository userRepository;
 

@@ -66,7 +66,7 @@ public class SecurityConfig {
 
     @Bean
     public AuthenticationSuccessHandler myAuthenticationSuccessHandler(){
-        return new SimpleUrlAuthSuccessHandler();
+        return new SimpleAuthSuccessHandler();
     }
 
     // Required for Spring Security to listen to session events for concurrent session control
