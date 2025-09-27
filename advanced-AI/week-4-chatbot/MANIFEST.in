@@ -1,0 +1,21 @@
+# MANIFEST.in
+
+# Include the main project documentation
+include README.md
+
+# Include the main Django management utility
+include manage.py
+
+# Recursively include non-Python files inside the app
+recursive-include chatbot_api/templates *
+recursive-include chatbot_api/static *
+recursive-include chatbot_api/fixtures *
+
+# Include the terminal client script
+include terminal_client.py
+
+# Include the .gitignore file
+include .gitignore
+
+# Include the project requirements file (if you create one)
+# include requirements.txt
