@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Sample Web Attack & Mitigation Project Demo</title>
+    <link rel="stylesheet" href="style.css"> 
+</head>
+<body>
+
+    <h1>Secure Software Development: Web Attack & Mitigation Demo</h1>
+    <p>This project demonstrates Cross-Site Scripting (XSS) and <code>eval()</code> vulnerabilities, and their proper mitigations.</p>
+
+    <section class="vulnerable-section">
+        <h2>1. JavaScript Code Injection (XSS)</h2>
+        <p>Vulnerability: User input is directly inserted into the DOM (inner HTML) without **escaping**.</p>
+        
+        <label for="xss-input">Enter Attack Text/Payload:</label>
+        <input type="text" id="xss-input" value='<details open ontoggle="alert(`XSS Bypass is successful! Payload Executed!`)">' style="width: 80%;">        
+        <br><br>
+        <button onclick="runVulnerableXSS()">😈 Run VULNERABLE XSS Demo</button>
+        <div id="vulnerable-xss-output" class="output vulnerable-output">Output Display Area</div>
+        
+        <br>
+        <button onclick="runSecureXSS()">✅ Run SECURE XSS Mitigation</button>
+        <div id="secure-xss-output" class="output secure-output">Output Display Area (Secured)</div>
+    </section>
+
+    <section class="vulnerable-section">
+        <h2>2. Dynamic Code Evaluation (<code>eval()</code>)</h2>
+        <p>Vulnerability: Using <code>eval()</code> on unsanitized user input allows arbitrary code execution.</p>
+        
+        <label for="eval-input">Enter Attack Expression/Payload:</label>
+        <input type="text" id="eval-input" value="alert('Hacked! Running malicious code to steal cookies: ' + document.cookie);" style="width: 80%;">
+        
+        <br><br>
+        <button onclick="runVulnerableEval()">😈 Run VULNERABLE eval() Demo</button>
+        <div id="vulnerable-eval-output" class="output vulnerable-output">Result: </div>
+        
+        <br>
+        <button onclick="runSecureEval()">✅ Run SECURE Mitigation</button>
+        <div id="secure-eval-output" class="output secure-output">Result (Secured): </div>
+    </section>
+
+    <script src="script.js"></script>
+</body>
+</html>
