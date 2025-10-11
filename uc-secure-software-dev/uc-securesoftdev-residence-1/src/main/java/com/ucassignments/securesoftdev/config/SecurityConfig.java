@@ -43,7 +43,7 @@ public class SecurityConfig {
         return new JwtAuthFilter();
     }
 
-    @Bean
+/*    @Bean
     public WebMvcConfigurer corsConfigurer() {
         return new WebMvcConfigurer() {
             @Override
@@ -54,7 +54,7 @@ public class SecurityConfig {
                         .allowedHeaders("*");
             }
         };
-    }
+    }*/
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http, RateLimitingFilter rateLimitingFilter, JwtAuthFilter jwtAuthFilter) throws Exception {
@@ -69,7 +69,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/user/**").hasAnyRole("USER", "ADMIN")
                         .anyRequest().authenticated()
                 )
-                // CSRF with HttpOnly cookie to prevent theft via JavaScript
+
                 .csrf(csrf -> csrf.disable())
                 .redirectToHttps(Customizer.withDefaults())
                 .headers(headers -> headers

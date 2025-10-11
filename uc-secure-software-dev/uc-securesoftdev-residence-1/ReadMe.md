@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-**uc-securesoftdev-residence-1** is a secure web application for managing user tasks, built with **Spring Boot**, **Spring Security**, and **JWT (JSON Web Tokens)**. The project features a single-page application (SPA) front end (`index.html`) that interacts with a RESTful API backend. It includes robust authentication, authorization, and rate-limiting mechanisms to ensure data security and application stability.
+**uc-securesoftdev-residence-1** is a secure web application for managing user tasks, built with **Spring Boot**, **Spring Security**, and **JWT (JSON Web Tokens)**. The project showcases a robust, full-stack implementation of authentication, authorization, and data management. It provides a modern, stateless API backend that interacts with a dynamic single-page application (SPA) built with plain HTML and JavaScript. Key features include a sliding window rate limiter for abuse prevention and clear role-based access control for both standard users and administrators.
 
 ## Features
 
