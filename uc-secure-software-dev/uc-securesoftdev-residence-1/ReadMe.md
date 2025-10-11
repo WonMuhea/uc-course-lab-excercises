@@ -24,13 +24,25 @@
 
 ### Admin Functionality
 *   **Admin Access:** Securely restricts certain endpoints to users with the "ADMIN" role.
-*   **User and Task Overview:** Provides a consolidated view for admins to see all users and their related tasks.
+*   **User and Task Overview:** Provides a consolidated view for admins to see all users. An admin can then click a button next to each user to view that user's specific tasks in a modal window.
 
-### Technology Stack
-*   **Backend:** Spring Boot, Spring Security, Spring Data JPA, H2 Database, Lombok, JJWT, Redis (for rate limiting).
-*   **Database:** H2 (in-memory) for development and easy setup.
-*   **Frontend:** HTML, CSS (Bootstrap), JavaScript (pure).
-*   **Build Tool:** Maven.
+## User Interface (UI) Overview
+
+### What a User Sees
+*   **Registration Form:** An unauthenticated user sees a form to create a new account.
+*   **Login Form:** An unauthenticated user sees a form to log in with an existing account.
+*   **Task Management Section:** After logging in, a user sees:
+    *   A welcome message.
+    *   A list of their own tasks.
+    *   A form to create a new task.
+    *   A logout button.
+
+### What an Admin Sees
+*   **Admin User List:** After logging in, an admin sees:
+    *   A welcome message.
+    *   A list of all registered users.
+    *   **User Task View:** Each user in the list has a "View Tasks" button. Clicking this button opens a modal showing a list of that specific user's tasks.
+    *   A logout button.
 
 ## Getting Started
 
@@ -63,6 +75,7 @@
 ### Accessing the Application
 
 *   **Frontend UI:** Open your web browser and navigate to `https://localhost:8443`.
+
 ### Initial Users
 
 The application is pre-configured with a command-line runner to create an initial admin user and roles upon startup.
