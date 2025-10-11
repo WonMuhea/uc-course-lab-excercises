@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spring Boot JWT App</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="p-3">
+
+<div id="auth-section">
+    <h2>Register</h2>
+    <form id="register-form" class="mb-4">
+        <div class="mb-3">
+            <label for="register-username" class="form-label">Username</label>
+            <input type="text" class="form-control" id="register-username">
+        </div>
+        <div class="mb-3">
+            <label for="register-password" class="form-label">Password</label>
+            <input type="password" class="form-control" id="register-password">
+        </div>
+        <button type="submit" class="btn btn-primary">Register</button>
+    </form>
+
+    <h2>Login</h2>
+    <form id="login-form">
+        <div class="mb-3">
+            <label for="login-username" class="form-label">Username</label>
+            <input type="text" class="form-control" id="login-username">
+        </div>
+        <div class="mb-3">
+            <label for="login-password" class="form-label">Password</label>
+            <input type="password" class="form-control" id="login-password">
+        </div>
+        <button type="submit" class="btn btn-primary">Login</button>
+    </form>
+</div>
+
+<div id="app-section" class="d-none">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 id="welcome-message"></h2>
+        <button id="logout-btn" class="btn btn-danger">Logout</button>
+    </div>
+
+    <!-- User section -->
+    <div id="user-section" class="d-none">
+        <h3>My Tasks</h3>
+        <ul id="task-list" class="list-group mb-4"></ul>
+        <form id="new-task-form">
+            <div class="mb-3">
+                <label for="task-title" class="form-label">New Task Title</label>
+                <input type="text" class="form-control" id="task-title">
+            </div>
+            <div class="mb-3">
+                <label for="task-description" class="form-label">Description</label>
+                <textarea class="form-control" id="task-description"></textarea>
+            </div>
+            <button type="submit" class="btn btn-success">Add Task</button>
+        </form>
+    </div>
+    <!-- Task Details Modal -->
+    <div class="modal fade" id="task-details-modal" tabindex="-1" aria-labelledby="taskDetailsModalLabel"
+         aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="taskDetailsModalLabel">User Tasks</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="task-details-modal-body">
+                    <!-- Tasks will be rendered here -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin section -->
+    <div id="admin-section" class="d-none">
+        <h3>All Users</h3>
+        <ul id="admin-user-list" class="list-group"></ul>
+    </div>
+</div>
+
+<script>
+        const API_BASE_URL = '/api';
+        const ACCESS_TOKEN_KEY = 'accessToken';
+        const REFRESH_TOKEN_KEY = 'refreshToken';
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const authSection = document.getElementById('auth-section');
+            const appSection = document.getElementById('app-section');
+            const welcomeMessage = document.getElementById('welcome-message');
+            const userSection = document.getElementById('user-section');
+            const adminSection = document.getElementById('admin-section');
+            const logoutBtn = document.getElementById('logout-btn');
+
+            const registerForm = document.getElementById('register-form');
+            const loginForm = document.getElementById('login-form');
+
+            // --- UI and Token Management ---
+            function showApp() {
+                authSection.classList.add('d-none');
+                appSection.classList.remove('d-none');
+                fetchUserData();
+                fetchAdminData();
+            }
+
+            function showAuth() {
+                authSection.classList.remove('d-none');
+                appSection.classList.add('d-none');
+                localStorage.removeItem(ACCESS_TOKEN_KEY);
+                localStorage.removeItem(REFRESH_TOKEN_KEY);
+            }
+
+            // --- API Calls ---
+            async function fetchData(endpoint) {
+                const accessToken = localStorage.getItem(ACCESS_TOKEN_KEY);
+                if (!accessToken) {
+                    showAuth();
+                    return;
+                }
+                const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`
+                    }
+                });
+                if (response.ok) {
+                    return await response.json();
+                } else if (response.status === 401) {
+                    // Try to refresh token
+                    const refreshed = await refreshToken();
+                    if (refreshed) {
+                        return fetchData(endpoint); // Retry with new token
+                    }
+                }
+                showAuth();
+                return null;
+            }
+
+            async function postData(endpoint, data) {
+                const accessToken = localStorage.getItem(ACCESS_TOKEN_KEY);
+                if (!accessToken) {
+                    showAuth();
+                    return;
+                }
+                const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${accessToken}`
+                    },
+                    body: JSON.stringify(data)
+                });
+                if (response.ok) {
+                    return await response.json();
+                } else if (response.status === 401) {
+                    const refreshed = await refreshToken();
+                    if (refreshed) {
+                        return postData(endpoint, data);
+                    }
+                }
+                showAuth();
+                return null;
+            }
+
+            async function refreshToken() {
+                const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
+                if (!refreshToken) return false;
+
+                const response = await fetch(`${API_BASE_URL}/auth/refreshtoken`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ refreshToken })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    localStorage.setItem(ACCESS_TOKEN_KEY, data.accessToken);
+                    return true;
+                } else {
+                    showAuth();
+                    return false;
+                }
+            }
+
+            // --- Rendering Functions ---
+            function renderUserTasks(tasks) {
+                const taskList = document.getElementById('task-list');
+                taskList.innerHTML = '';
+                tasks.forEach(task => {
+                    const li = document.createElement('li');
+                    li.className = 'list-group-item';
+                    li.textContent = `${task.title}: ${task.description}`;
+                    taskList.appendChild(li);
+                });
+            }
+
+            function renderAdminUsers(users) {
+        const userList = document.getElementById('admin-user-list');
+        userList.innerHTML = '';
+        users.forEach(user => {
+            const li = document.createElement('li');
+            li.className = 'list-group-item d-flex justify-content-between align-items-center';
+            li.textContent = user.username;
+
+            const button = document.createElement('button');
+            button.className = 'btn btn-info btn-sm';
+            button.textContent = 'View Tasks';
+            button.onclick = () => showUserTasks(user.id, user.username);
+
+            li.appendChild(button);
+            userList.appendChild(li);
+        });
+    }
+
+    async function showUserTasks(userId, username) {
+        const tasks = await fetchData(`/api/admin/users/${userId}/tasks`);
+        if (tasks) {
+            let taskListHtml = `<h5>Tasks for ${username}:</h5>`;
+            if (tasks.length > 0) {
+                taskListHtml += `<ul class="list-group mt-2">`;
+                tasks.forEach(task => {
+                    taskListHtml += `<li class="list-group-item">${task.title}: ${task.description}</li>`;
+                });
+                taskListHtml += `</ul>`;
+            } else {
+                taskListHtml += `<p class="text-muted mt-2">No tasks found for this user.</p>`;
+            }
+            // Display tasks in a modal or a designated area
+            document.getElementById('task-details-modal-body').innerHTML = taskListHtml;
+            const taskModal = new bootstrap.Modal(document.getElementById('task-details-modal'));
+            taskModal.show();
+        }
+    }
+
+    // --- Fetching Data on Load ---
+    async function fetchUserData() {
+        // ... existing logic ...
+        if (roles.includes('ROLE_ADMIN')) {
+            adminSection.classList.remove('d-none');
+            const users = await fetchData('/api/admin/users');
+            if (users) renderAdminUsers(users);
+        } else {
+            adminSection.classList.add('d-none');
+        }
+    }
+
+
+
+            // --- Event Listeners ---
+            registerForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const username = document.getElementById('register-username').value;
+                const password = document.getElementById('register-password').value;
+                const response = await fetch(`${API_BASE_URL}/auth/signup`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                if (response.ok) alert('Registration successful! You can now log in.');
+                else alert('Registration failed.');
+            });
+
+            loginForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const username = document.getElementById('login-username').value;
+                const password = document.getElementById('login-password').value;
+                const response = await fetch(`${API_BASE_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    localStorage.setItem(ACCESS_TOKEN_KEY, data.accessToken);
+                    localStorage.setItem(REFRESH_TOKEN_KEY, data.refreshToken);
+                    localStorage.setItem('username', data.username);
+                    localStorage.setItem('roles', JSON.stringify(data.roles));
+                    showApp();
+                } else {
+                    alert('Login failed.');
+                }
+            });
+
+            logoutBtn.addEventListener('click', async () => {
+        // Send logout request to the server to invalidate the refresh token
+        await fetch(`${API_BASE_URL}/auth/logout`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem(ACCESS_TOKEN_KEY)}`
+            }
+        });
+        // Clear local storage and show the auth section
+        showAuth();
+        alert('You have been logged out.');
+    });
+
+            document.getElementById('new-task-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const title = document.getElementById('task-title').value;
+                const description = document.getElementById('task-description').value;
+                await postData('/user/tasks', { title, description });
+                fetchUserData();
+                document.getElementById('new-task-form').reset();
+            });
+
+            logoutBtn.addEventListener('click', showAuth);
+
+            // --- Initial Check ---
+            if (localStorage.getItem(ACCESS_TOKEN_KEY)) {
+                showApp();
+            } else {
+                showAuth();
+            }
+        });
+
+
+</script>
+</body>
+</html>

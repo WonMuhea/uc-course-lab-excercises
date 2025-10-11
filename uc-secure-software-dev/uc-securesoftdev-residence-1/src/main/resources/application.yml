@@ -1,0 +1,42 @@
+server:
+  port: 8443
+  ssl:
+    enabled: true
+    key-store: classpath:keystore.p12
+    key-store-type: PKCS12
+    key-store-password: my-password
+    key-alias: my-key
+  http:
+    port: 8080
+
+api:
+  rate:
+    limit: 10000
+    interval: 60
+
+# H2 database configuration
+spring:
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  datasource:
+    url: jdbc:h2:mem:taskdb
+    driverClassName: org.h2.Driver
+    username: sa
+    password: password
+  jpa:
+    hibernate:
+      ddl-auto: create
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+
+# JWT configuration
+jwt:
+  secret: fulNw4J5SB09uOl66+vwnE2fNwE14d6fSuu5QIHGky9QhGhs+E3DqQS7SllCae0u2qPjT5umcys6b9oGQYixaA==
+  expiration:
+    access:
+      ms: 300000 # 5 minutes
+    refresh:
+      ms: 2592000000 # 30 days
