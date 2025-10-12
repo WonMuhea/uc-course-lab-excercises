@@ -1,4 +1,4 @@
-# config.py
+
 
 # Data Settings
 DATA_PATH = 'data/creditcard.csv'
