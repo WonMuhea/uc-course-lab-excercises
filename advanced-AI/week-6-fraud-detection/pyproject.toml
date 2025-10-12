@@ -1,0 +1,29 @@
+[build-system]
+# Standard way to tell build tools like 'pip' and 'build' how to build the project
+requires = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fraud-detection-pyod-ae"
+version = "0.1.0"
+description = "AutoEncoder Fraud Detection using PyOD on Kaggle credit card data"
+readme = "README.md"
+authors = [
+    {name = "Your Name", email = "your.email@example.com"},
+]
+license = {file = "LICENSE"}
+keywords = ["fraud", "anomaly-detection", "pyod", "autoencoder"]
+
+# The core dependencies needed to run the project
+dependencies = [
+    "pandas>=1.0",
+    "numpy>=1.18",
+    "scikit-learn>=0.23",
+    "pyod>=2.0.5",  # Specify the version you are using
+    "torch",        # PyTorch backend for deep learning models
+    "matplotlib",   # For creating the plots in evaluator.py
+]
+
+[tool.setuptools.packages]
+# Tells setuptools to find the package directory (if you turn this into a package)
+find = {}
