@@ -1,0 +1,11 @@
+com/schedule/app/domain/Shift.class
+com/schedule/app/domain/Employee.class
+com/schedule/app/service/SchedulerService.class
+com/schedule/app/Main.class
+com/schedule/app/repository/MemoryStorage.class
+com/schedule/app/domain/WeeklySchedule$ShiftAssignment.class
+com/schedule/app/service/SchedulerService$SchedulingResult.class
+com/schedule/app/service/SchedulerService$1FlatPref.class
+com/schedule/app/domain/Day.class
+com/schedule/app/domain/WeeklySchedule.class
+com/schedule/app/domain/Preference.class
