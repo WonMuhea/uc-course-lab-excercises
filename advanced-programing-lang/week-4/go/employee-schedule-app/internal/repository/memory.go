@@ -71,5 +71,7 @@ func (m *MemoryStorage) UpdateSchedule(sched domain.WeeklySchedule) {
 }
 
 func (m *MemoryStorage) GetTargetWeek() domain.WeekWindow {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	return m.targetWeek
 }

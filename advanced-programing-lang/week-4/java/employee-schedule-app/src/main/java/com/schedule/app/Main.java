@@ -16,10 +16,11 @@ import javafx.stage.Stage;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.stream.Collectors;
 
 public class Main extends Application {
-    private MemoryStorage storage;
     private SchedulerService schedulerService;
     
     private StackPane workspaceArea;
@@ -30,7 +31,7 @@ public class Main extends Application {
 
     @Override
     public void start(Stage primaryStage) {
-        this.storage = new MemoryStorage();
+        MemoryStorage storage = new MemoryStorage();
         this.schedulerService = new SchedulerService(storage);
 
         primaryStage.setTitle("Employee Management Dashboard");
@@ -54,7 +55,10 @@ public class Main extends Application {
 
         navRegisterBtn.setOnAction(e -> switchWorkspace(buildRegistrationScreen()));
         navPrefBtn.setOnAction(e -> switchWorkspace(buildPreferencesScreen()));
-        navSchedBtn.setOnAction(e -> switchWorkspace(buildScheduleScreen()));
+        navSchedBtn.setOnAction(e -> {
+            switchWorkspace(buildScheduleScreen());
+            refreshScheduleBoardView();
+        });
 
         sidebar.getChildren().addAll(sidebarTitle, new Separator(), navRegisterBtn, navPrefBtn, navSchedBtn);
 
@@ -80,7 +84,7 @@ public class Main extends Application {
     }
 
     private boolean checkEmptyStorage() {
-        if (storage.getEmployees().isEmpty()) {
+        if (schedulerService.getEmployees().isEmpty()) {
             showAlert(Alert.AlertType.ERROR, "Error", "No employee is inserted. Please register staff members first.");
             return true;
         }
@@ -120,7 +124,7 @@ public class Main extends Application {
             }
 
             try {
-                storage.registerEmployee(new Employee(id, name));
+                schedulerService.registerEmployee(new Employee(id, name));
                 showAlert(Alert.AlertType.INFORMATION, "Success", "Employee registered successfully!");
                 idInput.clear();
                 nameInput.clear();
@@ -129,7 +133,35 @@ public class Main extends Application {
             }
         });
 
-        view.getChildren().addAll(header, new Separator(), formGrid, submitBtn);
+        Button loadDefaultsBtn = new Button("Load Default Roster (6 Employees)");
+        loadDefaultsBtn.setStyle("-fx-background-color: #2ED573; -fx-text-fill: white; -fx-cursor: hand;");
+        loadDefaultsBtn.setOnAction(e -> {
+            String[][] defaultStaff = {
+                {"EMP001", "Alice Smith"},
+                {"EMP002", "Bob Jones"},
+                {"EMP003", "Charlie Brown"},
+                {"EMP004", "Diana Prince"},
+                {"EMP005", "Evan Wright"},
+                {"EMP006", "Fiona Gallagher"}
+            };
+
+            int insertedCount = 0;
+            for (String[] staff : defaultStaff) {
+                try {
+                    schedulerService.registerEmployee(new Employee(staff[0], staff[1]));
+                    insertedCount++;
+                } catch (IllegalArgumentException ignored) {}
+            }
+
+            if (insertedCount > 0) {
+                showAlert(Alert.AlertType.INFORMATION, "Roster Loaded", "Successfully seeded default employees into the system!");
+            } else {
+                showAlert(Alert.AlertType.INFORMATION, "Notice", "Default employees are already registered.");
+            }
+            loadDefaultsBtn.setDisable(true); // Requirement 1: Deactivates once processed
+        });
+
+        view.getChildren().addAll(header, new Separator(), formGrid, submitBtn, new Separator(), loadDefaultsBtn);
         return view;
     }
 
@@ -141,14 +173,13 @@ public class Main extends Application {
         Label header = new Label("2. Shift Preferences Selection Workspace");
         header.setFont(Font.font("Arial", FontWeight.BOLD, 16));
 
-        Label weekLabel = new Label("Target Shift Week Window: " + storage.getTargetWeekStart());
+        // Fixed type signature to handle LocalDate dynamically
+        Label weekLabel = new Label("Target Shift Week Window: " + schedulerService.getTargetWeekStart().toString());
         weekLabel.setStyle("-fx-font-style: italic;");
 
         employeeComboBox = new ComboBox<>();
         employeeComboBox.setPromptText("Choose Employee");
-        employeeComboBox.getItems().addAll(storage.getEmployees());
-
-        // INTERCEPT: Block dropdown usage if empty
+        employeeComboBox.getItems().addAll(schedulerService.getEmployees());
         employeeComboBox.setOnMouseClicked(e -> checkEmptyStorage());
 
         ComboBox<Day> dayComboBox = new ComboBox<>();
@@ -177,14 +208,87 @@ public class Main extends Application {
                 return;
             }
 
-            List<Preference> prefs = new ArrayList<>();
-            prefs.add(new Preference(selectedDay, p1, 1));
-            if (p2 != null && p2 != p1) {
-                prefs.add(new Preference(selectedDay, p2, 2));
+            WeeklySchedule currentSchedule = schedulerService.getWeeklySchedule();
+            Day assignedDay = selectedDay;
+            Shift assignedShift = p1;
+            boolean wasRedirected = false;
+
+            // Requirement 2: Fallback logic with Next-Day assignment validation guard checks
+            if (currentSchedule.getAssignments(selectedDay, p1).size() >= 2) {
+                wasRedirected = true;
+                boolean foundAlternative = false;
+
+                // Rule A: Check same day open slots
+                for (Shift altShift : Shift.values()) {
+                    if (altShift != p1 && currentSchedule.getAssignments(selectedDay, altShift).size() < 2) {
+                        assignedDay = selectedDay;
+                        assignedShift = altShift;
+                        foundAlternative = true;
+                        break;
+                    }
+                }
+
+                // Rule B: Fallback onto the next sequential day
+                if (!foundAlternative) {
+                    int nextDayOrdinal = (selectedDay.ordinal() + 1) % Day.values().length;
+                    Day nextDay = Day.values()[nextDayOrdinal];
+
+                    // Check if employee is already booked for ANY shift on the next day
+                    Shift existingNextDayAssignment = null;
+                    for (Shift sft : Shift.values()) {
+                        for (WeeklySchedule.ShiftAssignment assign : currentSchedule.getAssignments(nextDay, sft)) {
+                            if (assign.employeeId().equals(selectedEmp.getId())) {
+                                existingNextDayAssignment = sft;
+                                break;
+                            }
+                        }
+                    }
+
+                    for (Shift altShift : Shift.values()) {
+                        if (currentSchedule.getAssignments(nextDay, altShift).size() < 2) {
+                            if (existingNextDayAssignment != null) {
+                                // If the available open shift falls strictly BEFORE their assigned block, allow it.
+                                if (altShift.ordinal() < existingNextDayAssignment.ordinal()) {
+                                    assignedDay = nextDay;
+                                    assignedShift = altShift;
+                                    foundAlternative = true;
+                                    break;
+                                }
+                                // Otherwise, do not cascade into or after their existing shift
+                                continue;
+                            }
+                            
+                            assignedDay = nextDay;
+                            assignedShift = altShift;
+                            foundAlternative = true;
+                            break;
+                        }
+                    }
+                }
+
+                // No valid shift paths could safely accommodate the candidate, abort operation safely.
+                if (!foundAlternative) {
+                    showAlert(Alert.AlertType.WARNING, "Routing Blocked", 
+                        "Conflict detected: Requested shift is full, and fallback paths are blocked because " + selectedEmp.getName() + " is already assigned to an unavailable shift configuration on the following day.");
+                    return;
+                }
             }
 
-            storage.savePreferences(selectedEmp.getId(), prefs);
-            showAlert(Alert.AlertType.INFORMATION, "Saved", "Preferences successfully logged.");
+            List<Preference> prefs = new ArrayList<>();
+            prefs.add(new Preference(assignedDay, assignedShift, 1));
+            if (p2 != null && p2 != p1) {
+                prefs.add(new Preference(assignedDay, p2, 2));
+            }
+
+            schedulerService.savePreferences(selectedEmp.getId(), prefs);
+            schedulerService.generateSchedule(); // Live automation trigger
+
+            if (wasRedirected) {
+                showAlert(Alert.AlertType.INFORMATION, "Shift Redirected", 
+                    "Notice: Your requested shift was full.\n\nAutomatically rerouted to available slot:\n📅 " + assignedDay + " - 🕒 " + assignedShift + " Shift");
+            } else {
+                showAlert(Alert.AlertType.INFORMATION, "Saved", "Preferences successfully logged and live schedule compiled!");
+            }
         });
 
         view.getChildren().addAll(header, weekLabel, new Separator(), 
@@ -193,7 +297,7 @@ public class Main extends Application {
         return view;
     }
 
-    // SCREEN 3: Master Schedule Grid Board (2 Days Per Row Layout)
+    // SCREEN 3: Master Schedule Grid Board
     private VBox buildScheduleScreen() {
         VBox view = new VBox(15);
         view.setPadding(new Insets(20));
@@ -201,7 +305,8 @@ public class Main extends Application {
         Label header = new Label("3. Master Weekly Schedule Board");
         header.setFont(Font.font("Arial", FontWeight.BOLD, 16));
 
-        Label weekLabel = new Label("OFFICIAL MATRIX COMMENCING: " + storage.getTargetWeekStart());
+        // Fixed type signature to handle LocalDate dynamically
+        Label weekLabel = new Label("OFFICIAL MATRIX COMMENCING: " + schedulerService.getTargetWeekStart().toString());
         weekLabel.setStyle("-fx-font-style: italic;");
 
         noticeLabel = new Label("");
@@ -217,76 +322,100 @@ public class Main extends Application {
         calendarGrid = new GridPane();
         calendarGrid.setHgap(15);
         calendarGrid.setVgap(15);
-        calendarGrid.getChildren().add(new Label("No active schedule matrix compiled yet."));
 
-        Button genBtn = new Button("Compile / Update Weekly Schedule");
-        genBtn.setOnAction(e -> {
-            if (checkEmptyStorage()) return;
-
-            SchedulerService.SchedulingResult result = schedulerService.generateSchedule();
-            WeeklySchedule sched = result.schedule();
-            boolean hasUnassignedShifts = false;
-
-            if (result.capacityExhausted()) {
-                noticeLabel.setText("⚠️ NOTICE: All existing employees have worked for 5 days and unassigned shifts could not be covered due to strict labor limits.");
-                noticeLabel.setManaged(true);
-                noticeLabel.setVisible(true);
-            } else {
-                noticeLabel.setManaged(false);
-                noticeLabel.setVisible(false);
-            }
-
-            calendarGrid.getChildren().clear();
-
-            int currentColumn = 0;
-            int currentRow = 0;
-
-            for (Day day : Day.values()) {
-                VBox dayCardContent = new VBox(5);
-                dayCardContent.setPadding(new Insets(10));
-                dayCardContent.setStyle("-fx-border-color: #BDC3C7; -fx-border-width: 1; -fx-border-radius: 5; -fx-background-color: #FAFAFA;");
-                dayCardContent.setPrefWidth(400);
-
-                Label dayHeader = new Label("📅 " + day.toString());
-                dayHeader.setFont(Font.font("Arial", FontWeight.BOLD, 14));
-                dayCardContent.getChildren().addAll(dayHeader, new Separator());
-
-                for (Shift shift : Shift.values()) {
-                    List<WeeklySchedule.ShiftAssignment> line = sched.getAssignments(day, shift);
-                    String lineText;
-                    if (line.isEmpty()) {
-                        lineText = "[UNASSIGNED/EMPTY]";
-                        hasUnassignedShifts = true;
-                    } else {
-                        lineText = line.stream().map(WeeklySchedule.ShiftAssignment::employeeName).collect(Collectors.joining(", "));
-                    }
-                    dayCardContent.getChildren().add(new Label("• " + shift + ": " + lineText));
-                }
-
-                // Enforce 2 calendar cards per row layout constraint
-                calendarGrid.add(dayCardContent, currentColumn, currentRow);
-                currentColumn++;
-                if (currentColumn > 1) {
-					currentColumn = 0;
-					currentRow++;
-                }
-            }
-
-            if (hasUnassignedShifts) {
-                footnoteLabel.setManaged(true);
-                footnoteLabel.setVisible(true);
-            } else {
-                footnoteLabel.setManaged(false);
-                footnoteLabel.setVisible(false);
-            }
-        });
+        Button refreshBtn = new Button("Refresh Roster Matrix");
+        refreshBtn.setOnAction(e -> refreshScheduleBoardView());
 
         ScrollPane scrollPane = new ScrollPane(new VBox(15, calendarGrid, footnoteLabel));
         scrollPane.setFitToWidth(true);
         scrollPane.setPrefHeight(450);
 
-        view.getChildren().addAll(header, weekLabel, genBtn, noticeLabel, new Separator(), scrollPane);
+        view.getChildren().addAll(header, weekLabel, refreshBtn, noticeLabel, new Separator(), scrollPane);
         return view;
+    }
+
+    private void refreshScheduleBoardView() {
+        if (schedulerService.getEmployees().isEmpty()) {
+            calendarGrid.getChildren().clear();
+            calendarGrid.add(new Label("No active schedule matrix compiled yet."), 0, 0);
+            return;
+        }
+
+        WeeklySchedule sched = schedulerService.getWeeklySchedule();
+        boolean hasUnassignedShifts = false;
+
+        Map<String, Integer> workDaysCount = new HashMap<>();
+        for (Employee e : schedulerService.getEmployees()) {
+            workDaysCount.put(e.getId(), 0);
+        }
+
+        for (Day day : Day.values()) {
+            for (Shift shift : Shift.values()) {
+                for (WeeklySchedule.ShiftAssignment assign : sched.getAssignments(day, shift)) {
+                    workDaysCount.put(assign.employeeId(), workDaysCount.getOrDefault(assign.employeeId(), 0) + 1);
+                }
+            }
+        }
+
+        boolean allCapReached = !schedulerService.getEmployees().isEmpty();
+        for (Employee emp : schedulerService.getEmployees()) {
+            if (workDaysCount.getOrDefault(emp.getId(), 0) < 5) {
+                allCapReached = false;
+                break;
+            }
+        }
+
+        calendarGrid.getChildren().clear();
+
+        int currentColumn = 0;
+        int currentRow = 0;
+
+        for (Day day : Day.values()) {
+            VBox dayCardContent = new VBox(5);
+            dayCardContent.setPadding(new Insets(10));
+            dayCardContent.setStyle("-fx-border-color: #BDC3C7; -fx-border-width: 1; -fx-border-radius: 5; -fx-background-color: #FAFAFA;");
+            dayCardContent.setPrefWidth(400);
+
+            Label dayHeader = new Label("📅 " + day.toString());
+            dayHeader.setFont(Font.font("Arial", FontWeight.BOLD, 14));
+            dayCardContent.getChildren().addAll(dayHeader, new Separator());
+
+            for (Shift shift : Shift.values()) {
+                List<WeeklySchedule.ShiftAssignment> line = sched.getAssignments(day, shift);
+                String lineText;
+                if (line.isEmpty()) {
+                    lineText = "[UNASSIGNED/EMPTY]";
+                    hasUnassignedShifts = true;
+                } else {
+                    lineText = line.stream().map(WeeklySchedule.ShiftAssignment::employeeName).collect(Collectors.joining(", "));
+                }
+                dayCardContent.getChildren().add(new Label("• " + shift + ": " + lineText));
+            }
+
+            calendarGrid.add(dayCardContent, currentColumn, currentRow);
+            currentColumn++;
+            if (currentColumn > 1) {
+                currentColumn = 0;
+                currentRow++;
+            }
+        }
+
+        if (allCapReached && hasUnassignedShifts) {
+            noticeLabel.setText("⚠️ NOTICE: All existing employees have worked for 5 days and unassigned shifts could not be covered due to strict labor limits.");
+            noticeLabel.setManaged(true);
+            noticeLabel.setVisible(true);
+        } else {
+            noticeLabel.setManaged(false);
+            noticeLabel.setVisible(false);
+        }
+
+        if (hasUnassignedShifts) {
+            footnoteLabel.setManaged(true);
+            footnoteLabel.setVisible(true);
+        } else {
+            footnoteLabel.setManaged(false);
+            footnoteLabel.setVisible(false);
+        }
     }
 
     private void showAlert(Alert.AlertType type, String title, String contents) {

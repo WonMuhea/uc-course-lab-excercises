@@ -3,14 +3,36 @@ package com.schedule.app.service;
 import com.schedule.app.domain.*;
 import com.schedule.app.repository.MemoryStorage;
 
+import java.time.LocalDate;
 import java.util.*;
 
 public class SchedulerService {
     private final MemoryStorage storage;
-    private final Random rng = new Random();
 
     public SchedulerService(MemoryStorage storage) {
         this.storage = storage;
+    }
+
+    // --- SERVICE ARCHITECTURE PROXY METHOD ENDPOINTS ---
+
+    public List<Employee> getEmployees() {
+        return new ArrayList<>(storage.getEmployees());
+    }
+
+    public void registerEmployee(Employee emp) {
+        storage.registerEmployee(emp);
+    }
+
+    public void savePreferences(String id, List<Preference> prefs) {
+        storage.savePreferences(id, prefs);
+    }
+
+    public WeeklySchedule getWeeklySchedule() {
+        return storage.getWeeklySchedule();
+    }
+
+    public LocalDate getTargetWeekStart() {
+        return storage.getTargetWeekStart();
     }
 
     public SchedulingResult generateSchedule() {
@@ -50,11 +72,11 @@ public class SchedulerService {
             workDaysCount.put(emp.getId(), workDaysCount.get(emp.getId()) + 1);
         }
 
-        // Step 3: Enforce shift minimum capacities (Minimum 2 employees)
+        // Step 3: Enforce shift minimum capacities (Minimum 2 employees) deterministically
         for (Day day : Day.values()) {
             for (Shift shift : Shift.values()) {
                 while (newSched.getAssignments(day, shift).size() < 2) {
-                    boolean assigned = fillShiftWithFallback(newSched, day, shift, employeeList, workDaysCount);
+                    boolean assigned = fillShiftWithDeterministicFallback(newSched, day, shift, employeeList, workDaysCount);
                     if (!assigned) {
                         capacityExhausted = true;
                         break;
@@ -67,12 +89,16 @@ public class SchedulerService {
         return new SchedulingResult(newSched, capacityExhausted);
     }
 
-    private boolean fillShiftWithFallback(WeeklySchedule sched, Day day, Shift shift, 
-                                           List<Employee> employees, Map<String, Integer> workCounts) {
-        List<Employee> shuffledEmps = new ArrayList<>(employees);
-        Collections.shuffle(shuffledEmps, rng);
+    /**
+     * FIXED: Replaced random shuffling with a strict, predictable fallback order based on Employee ID.
+     */
+    private boolean fillShiftWithDeterministicFallback(WeeklySchedule sched, Day day, Shift shift, 
+                                                        List<Employee> employees, Map<String, Integer> workCounts) {
+        // Create a copy and sort alphabetically/numerically by ID to ensure repeatable results
+        List<Employee> sortedEmps = new ArrayList<>(employees);
+        sortedEmps.sort(Comparator.comparing(Employee::getId));
 
-        for (Employee emp : shuffledEmps) {
+        for (Employee emp : sortedEmps) {
             if (workCounts.get(emp.getId()) >= 5) continue;
             if (isEmployeeWorkingOnDay(sched, day, emp.getId())) continue;
 
