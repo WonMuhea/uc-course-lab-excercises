@@ -1,11 +1,7 @@
 {
   "riders": [
-    { "id": "U101", "name": "Wonde" },
-    { "id": "U102", "name": "Kebe" }
+    { "id": "U101", "name": "Wonde" }
   ],
   "drivers": [
-    { "id": "D01", "name": "Carlos (Tesla Model 3)", "rating": 4.9 },
-    { "id": "D02", "name": "Diana (Toyota Prius)", "rating": 4.7 },
-    { "id": "D03", "name": "Evan (BMW M4)", "rating": 5.0 }
   ]
 }

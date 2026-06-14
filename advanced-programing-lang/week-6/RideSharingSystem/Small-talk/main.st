@@ -38,7 +38,7 @@ getValidatedAddress := [ :prompt |
         address ifNil: [ address := '' ].
         (address matchRegex: addressRegex) 
             ifTrue: [ isValid := true ]
-            ifFalse: [ stdout nextPutAll: '❌ Invalid! Format: [Street Name], [State] [Zipcode] (e.g., 123 Main St, VA 22314)'; nl; nl; flush ].
+            ifFalse: [ stdout nextPutAll: 'Invalid! Format: [Street Name], [State] [Zipcode] (e.g., 123 Main St, VA 22314)'; nl; nl; flush ].
     ].
     address.
 ].
@@ -58,9 +58,9 @@ handleRiderSession := [
         targetRider := Rider new initializeWithId: nextID name: inputName.
         globalRiders add: targetRider.
         storage saveStateRiders: globalRiders drivers: globalDrivers.
-        stdout nextPutAll: ('👤 New rider profile created for ', inputName, ' (ID: ', nextID, ').'); nl; nl; flush.
+        stdout nextPutAll: ('New rider profile created for ', inputName, ' (ID: ', nextID, ').'); nl; nl; flush.
     ] ifNotNil: [
-        stdout nextPutAll: ('✅ Welcome back, ', inputName, '!'); nl; nl; flush.
+        stdout nextPutAll: ('Welcome back, ', inputName, '!'); nl; nl; flush.
     ].
     targetRider.
 ].
@@ -79,7 +79,7 @@ selectRandomDriver := [
 ].
 
 activeRider := handleRiderSession value.
-"FIXED: Safe defensive initialization configuration guards active session tracking against drops"
+
 activeRider ifNil: [ activeRider := Rider new initializeWithId: 'U101' name: 'Guest' ].
 
 choice := '0'.
@@ -127,7 +127,7 @@ choice := '0'.
         activeRider requestRide: ride.
         driver addRide: ride.
         
-        stdout nl; nextPutAll: '🎉 Match Finalized!'; nl.
+        stdout nl; nextPutAll: 'Match Finalized!'; nl.
         stdout nextPutAll: ('   Assigned Driver: ', driver getName); nl.
         stdout nextPutAll: '   '.
         ride rideDetails.

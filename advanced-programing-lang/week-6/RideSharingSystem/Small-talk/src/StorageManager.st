@@ -32,19 +32,29 @@ Object subclass: StorageManager [
 
     extractJSONValue: line key: key [
 
-        | keyPattern matchResults startPos remainder endPos delimiters |
+        | keyPattern matchResults startPos remainder endPos delimiters isQuoted |
         keyPattern := '"', key, '"\s*:\s*"?'.
         matchResults := line searchRegex: keyPattern.
-        (matchResults isNil or: [ matchResults isEmpty ]) ifTrue: [ ^ '' ].
+        
+        "GNU Smalltalk: Ensure results exist and are a valid sequenceable collection to avoid 'shouldNotImplement' errors"
+        (matchResults isNil or: [ (matchResults isKindOf: SequenceableCollection) not ]) ifTrue: [ ^ '' ].
 
         startPos := (matchResults at: 1) last.
+        isQuoted := (line at: startPos) = $".
         remainder := line copyFrom: (startPos + 1) to: line size.
         
-        delimiters := Set withAll: { $". $,. $}. Character space. Character tab. Character cr. Character lf }.
-        endPos := remainder findFirst: [ :char | delimiters includes: char ].
+        "If the value started with a quote, only the closing quote is a delimiter. 
+         Otherwise (for numbers), use standard JSON delimiters including whitespace."
+        isQuoted ifTrue: [
+            endPos := remainder findFirst: [ :char | char = $" ].
+        ] ifFalse: [
+            delimiters := ' ,}' asSet addAll: { Character space. Character tab. Character cr. Character lf }; yourself.
+            endPos := remainder findFirst: [ :char | delimiters includes: char ].
+        ].
+
         endPos = 0 ifTrue: [ ^ remainder ].
         
-        ^ remainder copyFrom: 1 to: (endPos - 1).
+        ^ (remainder copyFrom: 1 to: (endPos - 1)) trim.
     ]
 
     saveStateRiders: riders drivers: drivers [
@@ -94,30 +104,31 @@ Object subclass: StorageManager [
         parsingRiders := false.
         parsingDrivers := false.
         
-        [ file atEnd ] whileFalse: [
-            line := file nextLine.
-            (line includesString: '"riders"') ifTrue: [ parsingRiders := true. parsingDrivers := false ].
-            (line includesString: '"drivers"') ifTrue: [ parsingDrivers := true. parsingRiders := false ].
-            
-            (line includesString: '{') ifTrue: [
-                parsingRiders ifTrue: [
-                    id := self extractJSONValue: line key: 'id'.
-                    name := self extractJSONValue: line key: 'name'.
-                    (id isEmpty or: [ name isEmpty ]) ifFalse: [
-                        riders add: (Rider new initializeWithId: id name: name).
+        [
+            [ file atEnd ] whileFalse: [
+                line := file nextLine.
+                ((line searchRegex: '"riders"') ifNotNil: [ :m | m isKindOf: SequenceableCollection ] ifNil: [ false ]) ifTrue: [ parsingRiders := true. parsingDrivers := false ].
+                ((line searchRegex: '"drivers"') ifNotNil: [ :m | m isKindOf: SequenceableCollection ] ifNil: [ false ]) ifTrue: [ parsingDrivers := true. parsingRiders := false ].
+                
+                (line includes: ${) ifTrue: [
+                    parsingRiders ifTrue: [
+                        id := self extractJSONValue: line key: 'id'.
+                        name := self extractJSONValue: line key: 'name'.
+                        (id isEmpty or: [ name isEmpty ]) ifFalse: [
+                            riders add: (Rider new initializeWithId: id name: name).
+                        ].
                     ].
-                ].
-                parsingDrivers ifTrue: [
-                    id := self extractJSONValue: line key: 'id'.
-                    name := self extractJSONValue: line key: 'name'.
-                    ratingStr := self extractJSONValue: line key: 'rating'.
-                    (id isEmpty or: [ name isEmpty ]) ifFalse: [
-                        rating := ratingStr isEmpty ifTrue: [ 5.0 ] ifFalse: [ ratingStr asNumber asFloat ].
-                        drivers add: (Driver new initializeWithId: id name: name rating: rating).
+                    parsingDrivers ifTrue: [
+                        id := self extractJSONValue: line key: 'id'.
+                        name := self extractJSONValue: line key: 'name'.
+                        ratingStr := self extractJSONValue: line key: 'rating'.
+                        (id isEmpty or: [ name isEmpty ]) ifFalse: [
+                            rating := ratingStr isEmpty ifTrue: [ 5.0 ] ifFalse: [ ratingStr asNumber asFloat ].
+                            drivers add: (Driver new initializeWithId: id name: name rating: rating).
+                        ].
                     ].
                 ].
             ].
-        ].
-        file close.
+        ] ensure: [ file close ].
     ]
 ]

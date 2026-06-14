@@ -22,7 +22,7 @@ std::string getValidatedAddress(const std::string& prompt) {
         std::cout << prompt;
         std::getline(std::cin, address);
         if (validateAddress(address)) return address;
-        std::cout << "❌ Invalid! Format: [Street Name], [State] [Zipcode] (e.g., 123 Main St, VA 22314)\n\n";
+        std::cout << "Invalid! Format: [Street Name], [State] [Zipcode] (e.g., 123 Main St, VA 22314)\n\n";
     }
 }
 
@@ -37,7 +37,7 @@ std::shared_ptr<Rider> handleRiderSession(StorageManager& storage) {
 
     for (auto& r : globalRiders) {
         if (r->getName() == inputName) {
-            std::cout << "✅ Welcome back, " << inputName << "!\n\n";
+            std::cout << "Welcome back, " << inputName << "!\n\n";
             return r;
         }
     }
@@ -46,7 +46,7 @@ std::shared_ptr<Rider> handleRiderSession(StorageManager& storage) {
     auto newRider = std::make_shared<Rider>(nextID, inputName);
     globalRiders.push_back(newRider);
     storage.saveState(globalRiders, globalDrivers);
-    std::cout << "👤 New rider profile created for " << inputName << " (ID: " << nextID << ").\n\n";
+    std::cout << "New rider profile created for " << inputName << " (ID: " << nextID << ").\n\n";
     return newRider;
 }
 
@@ -122,7 +122,7 @@ int main() {
                 activeRider->requestRide(ride);
                 driver->addRide(ride);
 
-                std::cout << "\n🎉 Match Finalized!\n   Assigned Driver: " << driver->getName() << "\n   ";
+                std::cout << "\nMatch Finalized!\n   Assigned Driver: " << driver->getName() << "\n   ";
                 ride->rideDetails();
                 std::cout << "\n";
                 break;
