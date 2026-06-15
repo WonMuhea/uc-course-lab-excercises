@@ -1,6 +1,6 @@
 "========================================================================
  @class StorageManager
- @brief Flat file string tokenizer matching the C++ parsing system
+ @brief Flat file JSON string tokenizer matching the C++ parsing system
  ========================================================================"
 
 Object subclass: StorageManager [
@@ -13,48 +13,41 @@ Object subclass: StorageManager [
         filename := file.
     ]
 
-    "BYPASS METHOD: Manually formats a float to string using safe integer math to prevent ZeroDivide crashes"
-    safeStringFromFloat: aFloat [
+    "Generic safe float formatter for storage"
+    formatFloat: aFloat precision: digits [
 
-        | wholePart fractionPart totalCents |
-        
-        "Convert the float to a precise number of cents (e.g., 4.9 -> 49)"
-        totalCents := (aFloat * 10) rounded.
-        
-        "Extract the whole number part via integer division"
-        wholePart := totalCents // 10.
-        
-        "Extract the remainder tenths digit via modulo"
-        fractionPart := totalCents \\ 10.
-        
-        ^ wholePart printString, '.', fractionPart printString.
+        | multiplier totalUnits wholePart fractionPart fractionStr |
+        multiplier := (10 raisedTo: digits).
+        totalUnits := (aFloat * multiplier) rounded.
+        wholePart := totalUnits // multiplier.
+        fractionPart := (totalUnits \\ multiplier) abs.
+        fractionStr := fractionPart printString.
+        [ fractionStr size < digits ] whileTrue: [ fractionStr := '0', fractionStr ].
+        ^ wholePart printString, '.', fractionStr.
     ]
 
+    "FIXED: Safe custom text filtering block that removes JSON syntax garbage cleanly without error-prone regex offsets"
     extractJSONValue: line key: key [
 
-        | keyPattern matchResults startPos remainder endPos delimiters isQuoted |
-        keyPattern := '"', key, '"\s*:\s*"?'.
-        matchResults := line searchRegex: keyPattern.
+        | searchStr keyIndex startPos subLine cleanLine |
+        searchStr := '"', key, '"'.
+        keyIndex := line indexOfSubCollection: searchStr startingAt: 1.
+        keyIndex = 0 ifTrue: [ ^ '' ].
         
-        "GNU Smalltalk: Ensure results exist and are a valid sequenceable collection to avoid 'shouldNotImplement' errors"
-        (matchResults isNil or: [ (matchResults isKindOf: SequenceableCollection) not ]) ifTrue: [ ^ '' ].
-
-        startPos := (matchResults at: 1) last.
-        isQuoted := (line at: startPos) = $".
-        remainder := line copyFrom: (startPos + 1) to: line size.
+        "Find the starting position past the separator colon"
+        startPos := line indexOfSubCollection: ':' startingAt: keyIndex.
+        startPos = 0 ifTrue: [ ^ '' ].
+        startPos := startPos + 1.
         
-        "If the value started with a quote, only the closing quote is a delimiter. 
-         Otherwise (for numbers), use standard JSON delimiters including whitespace."
-        isQuoted ifTrue: [
-            endPos := remainder findFirst: [ :char | char = $" ].
-        ] ifFalse: [
-            delimiters := ' ,}' asSet addAll: { Character space. Character tab. Character cr. Character lf }; yourself.
-            endPos := remainder findFirst: [ :char | delimiters includes: char ].
+        "Isolate remaining line data chunks"
+        subLine := line copyFrom: startPos to: line size.
+        
+        "Filter down characters to completely strip structural punctuation and whitespaces out of matching elements"
+        cleanLine := subLine select: [ :char |
+            (char = $" or: [ char = $, or: [ char = $} or: [ char = ${ or: [ char isSeparator ] ] ] ]) not
         ].
-
-        endPos = 0 ifTrue: [ ^ remainder ].
         
-        ^ (remainder copyFrom: 1 to: (endPos - 1)) trim.
+        ^ cleanLine.
     ]
 
     saveStateRiders: riders drivers: drivers [
@@ -74,9 +67,7 @@ Object subclass: StorageManager [
             drivers doWithIndex: [ :driver :idx |
 
                 | safeRating |
-                "FIXED: Invokes our manual calculation block instead of the broken native engine"
-                safeRating := self safeStringFromFloat: driver getRating.
-                
+                safeRating := self formatFloat: driver getRating precision: 1.
                 stream nextPutAll: ('    { "id": "', driver getID, '", "name": "', driver getName, '", "rating": ', safeRating, ' }').
                 idx < drivers size ifTrue: [ stream nextPutAll: ',' ].
                 stream nl.
@@ -88,7 +79,7 @@ Object subclass: StorageManager [
 
     loadStateIntoRiders: riders intoDrivers: drivers [
 
-        | file line parsingRiders parsingDrivers id name ratingStr rating |
+        | file line parsingRiders parsingDrivers |
         (File exists: filename) ifFalse: [
             drivers add: (Driver new initializeWithId: 'D01' name: 'Carlos (Tesla Model 3)' rating: 4.9).
             drivers add: (Driver new initializeWithId: 'D02' name: 'Diana (Toyota Prius)' rating: 4.7).
@@ -96,39 +87,44 @@ Object subclass: StorageManager [
             ^ self.
         ].
 
-        "GNU Smalltalk compatibility: replace removeAll with manual clearing"
-        [ riders isEmpty ] whileFalse: [ riders removeLast ].
-        [ drivers isEmpty ] whileFalse: [ drivers removeLast ].
-
+        riders empty.
+        drivers empty.
         file := FileStream open: filename mode: FileStream read.
         parsingRiders := false.
         parsingDrivers := false.
         
-        [
-            [ file atEnd ] whileFalse: [
-                line := file nextLine.
-                ((line searchRegex: '"riders"') ifNotNil: [ :m | m isKindOf: SequenceableCollection ] ifNil: [ false ]) ifTrue: [ parsingRiders := true. parsingDrivers := false ].
-                ((line searchRegex: '"drivers"') ifNotNil: [ :m | m isKindOf: SequenceableCollection ] ifNil: [ false ]) ifTrue: [ parsingDrivers := true. parsingRiders := false ].
-                
-                (line includes: ${) ifTrue: [
-                    parsingRiders ifTrue: [
-                        id := self extractJSONValue: line key: 'id'.
-                        name := self extractJSONValue: line key: 'name'.
-                        (id isEmpty or: [ name isEmpty ]) ifFalse: [
-                            riders add: (Rider new initializeWithId: id name: name).
-                        ].
+        [ file atEnd ] whileFalse: [
+            line := file nextLine.
+            (line matchRegex: '.*"riders".*') ifTrue: [ parsingRiders := true. parsingDrivers := false ].
+            (line matchRegex: '.*"drivers".*') ifTrue: [ parsingDrivers := true. parsingRiders := false ].
+            
+            (line matchRegex: '.*\{.*') ifTrue: [
+                parsingRiders ifTrue: [
+
+                    | id name |
+                    id := self extractJSONValue: line key: 'id'.
+                    name := self extractJSONValue: line key: 'name'.
+                    (id isEmpty or: [ name isEmpty ]) ifFalse: [
+                        riders add: (Rider new initializeWithId: id name: name).
                     ].
-                    parsingDrivers ifTrue: [
-                        id := self extractJSONValue: line key: 'id'.
-                        name := self extractJSONValue: line key: 'name'.
-                        ratingStr := self extractJSONValue: line key: 'rating'.
-                        (id isEmpty or: [ name isEmpty ]) ifFalse: [
-                            rating := ratingStr isEmpty ifTrue: [ 5.0 ] ifFalse: [ ratingStr asNumber asFloat ].
-                            drivers add: (Driver new initializeWithId: id name: name rating: rating).
-                        ].
+                ].
+                parsingDrivers ifTrue: [
+
+                    | id name ratingStr cleanRatingStr rating |
+                    id := self extractJSONValue: line key: 'id'.
+                    name := self extractJSONValue: line key: 'name'.
+                    ratingStr := self extractJSONValue: line key: 'rating'.
+                    
+                    (id isEmpty or: [ name isEmpty ]) ifFalse: [
+                        cleanRatingStr := ratingStr select: [ :char | char isDigit or: [ char = $. ] ].
+                        
+                        "FIXED: Replaced #asFloat with native GNU Smalltalk #asNumber conversion"
+                        rating := cleanRatingStr isEmpty ifTrue: [ 5.0 ] ifFalse: [ cleanRatingStr asNumber ].
+                        drivers add: (Driver new initializeWithId: id name: name rating: rating).
                     ].
                 ].
             ].
-        ] ensure: [ file close ].
+        ].
+        file close.
     ]
 ]

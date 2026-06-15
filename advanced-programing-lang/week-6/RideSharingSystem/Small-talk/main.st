@@ -13,7 +13,7 @@ FileStream fileIn: 'src/Rider.st'.
 FileStream fileIn: 'src/Driver.st'.
 FileStream fileIn: 'src/StorageManager.st'.
 
-| globalRiders globalDrivers activeRider rideCounter stdin stdout choice addressRegex validateBlock getValidatedAddress handleRiderSession selectRandomDriver storage |
+| globalRiders globalDrivers activeRider rideCounter stdin stdout choice addressRegex getValidatedAddress handleRiderSession selectRandomDriver storage stripWhitespace |
 
 globalRiders := OrderedCollection new.
 globalDrivers := OrderedCollection new.
@@ -28,6 +28,17 @@ storage loadStateIntoRiders: globalRiders intoDrivers: globalDrivers.
 
 addressRegex := '^(.+),\s*([A-Z]{2})\s+(\d{5})$'.
 
+"GUARANTEED CROSS-PLATFORM TRIMMING: Manually strips leading/trailing whitespaces and hidden newlines"
+stripWhitespace := [ :str |
+
+    | startPos endPos |
+    startPos := 1.
+    [ startPos <= str size and: [ (str at: startPos) isSeparator ] ] whileTrue: [ startPos := startPos + 1 ].
+    endPos := str size.
+    [ endPos >= startPos and: [ (str at: endPos) isSeparator ] ] whileTrue: [ endPos := endPos - 1 ].
+    startPos > endPos ifTrue: [ '' ] ifFalse: [ str copyFrom: startPos to: endPos ].
+].
+
 getValidatedAddress := [ :prompt |
 
     | address isValid |
@@ -36,6 +47,7 @@ getValidatedAddress := [ :prompt |
         stdout nextPutAll: prompt; flush.
         address := stdin nextLine.
         address ifNil: [ address := '' ].
+        address := stripWhitespace value: address.
         (address matchRegex: addressRegex) 
             ifTrue: [ isValid := true ]
             ifFalse: [ stdout nextPutAll: 'Invalid! Format: [Street Name], [State] [Zipcode] (e.g., 123 Main St, VA 22314)'; nl; nl; flush ].
@@ -49,9 +61,10 @@ handleRiderSession := [
     stdout nextPutAll: '=== RIDER AUTHENTICATION MODULE ==='; nl; flush.
     stdout nextPutAll: 'Enter your Rider Name: '; flush.
     inputName := stdin nextLine.
-    inputName ifNil: [ inputName := 'Guest' ].
     
-    targetRider := globalRiders detect: [ :r | r getName = inputName ] ifNone: [ nil ].
+    inputName ifNil: [ inputName := 'Guest' ] ifNotNil: [ inputName := stripWhitespace value: inputName ].
+    
+    targetRider := globalRiders detect: [ :r | (r getName asLowercase) = (inputName asLowercase) ] ifNone: [ nil ].
     
     targetRider ifNil: [
         nextID := 'U', (globalRiders size + 101) printString.
@@ -60,7 +73,7 @@ handleRiderSession := [
         storage saveStateRiders: globalRiders drivers: globalDrivers.
         stdout nextPutAll: ('New rider profile created for ', inputName, ' (ID: ', nextID, ').'); nl; nl; flush.
     ] ifNotNil: [
-        stdout nextPutAll: ('Welcome back, ', inputName, '!'); nl; nl; flush.
+        stdout nextPutAll: ('Welcome back, ', targetRider getName, '!'); nl; nl; flush.
     ].
     targetRider.
 ].
@@ -79,7 +92,6 @@ selectRandomDriver := [
 ].
 
 activeRider := handleRiderSession value.
-
 activeRider ifNil: [ activeRider := Rider new initializeWithId: 'U101' name: 'Guest' ].
 
 choice := '0'.
@@ -98,23 +110,46 @@ choice := '0'.
     
     choice := stdin nextLine.
     choice ifNil: [ choice := '5' ].
+    choice := stripWhitespace value: choice.
 
     choice = '1' ifTrue: [
 
-        | pickup dropoff distStr distance typeChoice rID ride driver cleanDistStr |
+        | pickup dropoff distStr distance typeChoice rID ride driver cleanDistStr isNumber |
         pickup := getValidatedAddress value: 'Enter Pickup Address: '.
         dropoff := getValidatedAddress value: 'Enter Dropoff Address: '.
         
-        stdout nextPutAll: 'Enter Distance (miles): '; flush.
-        distStr := stdin nextLine.
-        distStr ifNil: [ distStr := '1.0' ].
+        "FIXED: Robust Loop checking if distance string contains actual numbers and isn't just letters"
+        distance := 0.0.
+        [ distance <= 0.0 ] whileTrue: [
+            stdout nextPutAll: 'Enter Distance (miles): '; flush.
+            distStr := stdin nextLine.
+            distStr ifNil: [ distStr := '' ].
+            
+            cleanDistStr := distStr select: [ :char | char isDigit or: [ char = $. ] ].
+            
+            "Verify there is a number left and it doesn't match an invalid alpha-only entry like 'r'"
+            isNumber := cleanDistStr isEmpty not and: [ (distStr anySatisfy: [ :c | c isDigit ]) ].
+            
+            isNumber 
+                ifTrue: [ 
+                    distance := cleanDistStr asNumber asFloat.
+                    distance <= 0.0 ifTrue: [ stdout nextPutAll: '❌ Distance must be greater than 0.'; nl; nl; flush ].
+                ]
+                ifFalse: [ stdout nextPutAll: '❌ Invalid input. Please enter a positive number.'; nl; nl; flush ].
+        ].
         
-        "FIXED: Filters text symbols out from user inputs to avoid parsing execution crashes"
-        cleanDistStr := distStr select: [ :char | char isDigit or: [ char = $. ] ].
-        distance := cleanDistStr isEmpty ifTrue: [ 1.0 ] ifFalse: [ cleanDistStr asNumber asFloat ].
-        
-        stdout nextPutAll: 'Select Type (1 for Standard, 2 for Premium): '; flush.
-        typeChoice := stdin nextLine.
+        "FIXED: Enforce strict selection rules for type choice parameters (must be 1 or 2)"
+        typeChoice := ''.
+        [ typeChoice = '1' or: [ typeChoice = '2' ] ] whileFalse: [
+            stdout nextPutAll: 'Select Type (1 for Standard, 2 for Premium): '; flush.
+            typeChoice := stdin nextLine.
+            typeChoice ifNil: [ typeChoice := '' ].
+            typeChoice := stripWhitespace value: typeChoice.
+            
+            (typeChoice = '1' or: [ typeChoice = '2' ]) ifFalse: [
+                stdout nextPutAll: '❌ Invalid selection. Enter 1 or 2.'; nl; nl; flush.
+            ].
+        ].
         
         rID := 'R00', rideCounter printString.
         rideCounter := rideCounter + 1.

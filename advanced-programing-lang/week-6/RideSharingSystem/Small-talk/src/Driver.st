@@ -26,13 +26,10 @@ Object subclass: Driver [
 
     getDriverInfo [
 
-        | stdout totalEarnings wholePart fractionPart safeRating |
+        | stdout totalEarnings safeRating |
         stdout := FileStream stdout.
-
-        "Safe manual formatting for rating (1 decimal place) to avoid Float printString bug"
-        wholePart := (rating * 10) rounded // 10.
-        fractionPart := (rating * 10) rounded \\ 10.
-        safeRating := wholePart printString, '.', fractionPart printString.
+        
+        safeRating := self formatFloat: rating precision: 1.
 
         stdout nextPutAll: ('Driver: ', name, ' (ID: ', driverID, ') | Rating: ', safeRating, '/5.0'); nl; flush.
         stdout nextPutAll: 'Completed Workload Ledger:'; nl; flush.
@@ -50,10 +47,19 @@ Object subclass: Driver [
             totalEarnings := totalEarnings + ride calculateFare.
         ].
 
-        "Safe manual formatting for earnings (2 decimal places)"
-        wholePart := (totalEarnings * 100) rounded // 100.
-        fractionPart := (totalEarnings * 100) rounded \\ 100.
-        stdout nextPutAll: ('Total Driver Earnings: $', wholePart printString, '.', 
-            (fractionPart < 10 ifTrue: [ '0' ] ifFalse: [ '' ]), fractionPart printString); nl; flush.
+        stdout nextPutAll: ('Total Driver Earnings: $', (self formatFloat: totalEarnings precision: 2)); nl; flush.
+    ]
+
+    "Private helper to format floats safely"
+    formatFloat: aFloat precision: digits [
+        | multiplier totalUnits wholePart fractionPart fractionStr |
+        multiplier := (10 raisedTo: digits).
+        totalUnits := (aFloat * multiplier) rounded.
+        wholePart := totalUnits // multiplier.
+        fractionPart := (totalUnits \\ multiplier) abs.
+        
+        fractionStr := fractionPart printString.
+        [ fractionStr size < digits ] whileTrue: [ fractionStr := '0', fractionStr ].
+        ^ wholePart printString, '.', fractionStr.
     ]
 ]
