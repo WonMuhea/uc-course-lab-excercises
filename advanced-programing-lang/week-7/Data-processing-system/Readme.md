@@ -9,6 +9,8 @@ This project provides a robust, cross-platform simulation of concurrent data pro
 To maintain clear separation of concerns, both codebases are modularized into domain models, input/output management, queue coordination, and orchestration layers.
 
 ## Local Running the apps for testing 
+
+### Testing Java 
 ```bash
 cd java/src
 
@@ -28,7 +30,7 @@ java com.dataprocessor.Main -f "/invalid_directory/output.txt"
 
 ```
 
-# Testing Go
+### Testing Go
 
 ```bash
 cd go
