@@ -22,6 +22,7 @@ gcc statistics.c -o statistics
 ```
 ### 2. C (Funcitonal)
 ```bash
+cd functional
 dune exec ./statistics.exe
 ```
 
